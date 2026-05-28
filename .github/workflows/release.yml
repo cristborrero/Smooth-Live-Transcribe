@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-apk:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK with version tag
+        run: |
+          VERSION=${{ github.ref_name }}
+          mv app/build/outputs/apk/debug/app-debug.apk \
+             app/build/outputs/apk/debug/smooth-live-transcribe-${VERSION}-debug.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Smooth Live Transcribe ${{ github.ref_name }}
+          body: |
+            ## What's in this release
+            Debug APK for sideloading and testing on Android devices (API 26+).
+
+            ## Install
+            1. Download the APK below
+            2. Enable "Install from unknown sources" on your device
+            3. Open the APK to install
+
+            > ⚠️ This is a debug build — for testing only. Release signing coming soon.
+          files: app/build/outputs/apk/debug/smooth-live-transcribe-${{ github.ref_name }}-debug.apk
+          draft: false
+          prerelease: false
