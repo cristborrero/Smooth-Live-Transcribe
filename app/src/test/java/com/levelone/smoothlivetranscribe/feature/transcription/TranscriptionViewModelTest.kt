@@ -114,19 +114,28 @@ class TranscriptionViewModelTest {
 
     @Test
     fun `saveCurrentSession saves session when confirmed text exists`() = runTest {
-        viewModel.startListening()
-        advanceTimeBy(100)
+        viewModel.readingState.test {
+            awaitItem() // Skip initial empty state
 
-        // Inject some confirmed text via ReadingEngine
-        readingEngine.onFinalResult("This is a test transcription.", this)
-        advanceTimeBy(500)
+            viewModel.startListening()
+            advanceTimeBy(100)
 
-        viewModel.saveCurrentSession()
-        advanceTimeBy(500)
+            // Inject some confirmed text via ReadingEngine
+            readingEngine.onFinalResult("This is a test transcription.", this@runTest)
+            
+            // Wait for readingState flow to collect the new confirmed text
+            val updatedState = awaitItem()
+            assertEquals("This is a test transcription.", updatedState.confirmedText)
 
-        val sessionSlot = slot<Session>()
-        coVerify { sessionRepository.saveSession(capture(sessionSlot)) }
-        assertTrue(sessionSlot.captured.content.contains("test transcription"))
+            viewModel.saveCurrentSession()
+            advanceTimeBy(500)
+
+            val sessionSlot = slot<Session>()
+            coVerify { sessionRepository.saveSession(capture(sessionSlot)) }
+            assertTrue(sessionSlot.captured.content.contains("test transcription"))
+            
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
